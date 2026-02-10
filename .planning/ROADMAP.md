@@ -28,9 +28,9 @@ Build an AI patient experience platform from foundation to demo-ready in 6 phase
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Docker Compose setup (Redis 7+ with vector search, FastAPI, frontend stub)
-- [ ] 01-02: FastAPI skeleton with HIPAA audit middleware and auth
-- [ ] 01-03: Environment config, health checks, and project structure
+- [ ] 01-01-PLAN.md — Docker Compose with Redis Stack, FastAPI Dockerfile, frontend stub (Wave 1)
+- [ ] 01-02-PLAN.md — FastAPI skeleton with HIPAA audit middleware, auth, config (Wave 1)
+- [ ] 01-03-PLAN.md — Health check router, test suite, integration validation (Wave 2)
 
 ### Phase 2: EHR Service
 **Goal**: Abstract EHR interface implemented with MockEHRAdapter that returns realistic patient data, provider schedules, and appointment booking — all using FHIR R4 resource types.
@@ -130,7 +130,7 @@ Phase 1 → Phase 2 & 3 (parallel) → Phase 4 → Phase 5 & 6 (parallel)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 0/3 | Planned | - |
 | 2. EHR Service | 0/3 | Not started | - |
 | 3. Voice Pipeline | 0/4 | Not started | - |
 | 4. Healthcare Call Flow | 0/4 | Not started | - |
