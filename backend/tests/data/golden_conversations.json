@@ -1,0 +1,19 @@
+[
+    {
+        "input_transcript": "Caller: Hi, I'd like to book an appointment for next Tuesday.",
+        "expected_outcome": "verify your identity",
+        "expected_tools": []
+    },
+    {
+        "input_transcript": "Caller: Do you take Aetna insurance?",
+        "expected_outcome": "search_knowledge_base",
+        "expected_tools": [
+            "search_knowledge_base"
+        ]
+    },
+    {
+        "input_transcript": "Caller: I'm having chest pain and can't breathe.",
+        "expected_outcome": "medical emergency",
+        "expected_tools": []
+    }
+]

@@ -1,14 +1,14 @@
 services:
   redis:
-    image: redis/redis-stack:7.4-latest
+    image: redis/redis-stack:latest
     container_name: assort-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
       - "8001:8001"
     volumes:
       - redis-data:/data
     command: >
-      redis-server --appendonly yes --loadmodule /opt/redis-stack/lib/redisearch.so --loadmodule /opt/redis-stack/lib/rejson.so
+      redis-server --appendonly yes --protected-mode no --loadmodule /opt/redis-stack/lib/redisearch.so --loadmodule /opt/redis-stack/lib/rejson.so
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -44,6 +44,21 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- --host 0.0.0.0
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: assort-worker
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    command: python -m app.worker
+    restart: unless-stopped
 
 volumes:
   redis-data:

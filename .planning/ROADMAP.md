@@ -6,12 +6,12 @@ Build an AI patient experience platform from foundation to demo-ready in 6 phase
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - Infrastructure, Redis, FastAPI skeleton, Docker Compose, HIPAA middleware
-- [ ] **Phase 2: EHR Service** - Abstract interface, MockEHRAdapter, FHIR R4 resources, patient/provider data
-- [ ] **Phase 3: Voice Pipeline** - Pipecat + Daily.co + Deepgram + GPT-4o + Cartesia, basic conversation flow
+- [x] **Phase 1: Foundation** - Infrastructure, Redis, FastAPI skeleton, Docker Compose, HIPAA middleware
+- [x] **Phase 2: EHR Service** - Abstract interface, MockEHRAdapter, FHIR R4 resources, patient/provider data
+- [x] **Phase 3: Voice Pipeline** - Pipecat + Daily.co + Deepgram + GPT-4o + Cartesia, basic conversation flow
 - [ ] **Phase 4: Healthcare Call Flow** - Identity verification, scheduling, knowledge base, clinical routing, emergency detection
 - [ ] **Phase 5: Learning Engine** - Post-call analysis, pattern extraction, prompt optimization, W&B Weave eval
-- [ ] **Phase 6: Provider Dashboard** - React frontend with call history, analytics, knowledge management, settings
+- [x] **Phase 6: Provider Dashboard** - React frontend with call history, analytics, knowledge management, settings
 
 ## Phase Details
 
@@ -45,9 +45,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: EHR service interface and FHIR R4 data models
-- [ ] 02-02: MockEHRAdapter with 50 fake patients, provider schedules, insurance plans
-- [ ] 02-03: API endpoints exposing EHR operations and integration tests
+- [x] 02-01: EHR service interface and FHIR R4 data models
+- [x] 02-02: MockEHRAdapter with 50 fake patients, provider schedules, insurance plans
+- [x] 02-03: API endpoints exposing EHR operations and integration tests
 
 ### Phase 3: Voice Pipeline
 **Goal**: Pipecat voice pipeline handles inbound calls via Daily.co WebRTC, transcribes with Deepgram, responds via GPT-4o, and speaks with Cartesia — achieving sub-500ms latency with streaming at every stage.
@@ -63,10 +63,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Pipecat pipeline with DailyTransport, Deepgram STT, Cartesia TTS
-- [ ] 03-02: GPT-4o integration with system prompts and function calling framework
-- [ ] 03-03: Twilio SIP → Daily.co routing for PSTN inbound calls
-- [ ] 03-04: Call state machine, transcript storage, and interruption handling
+- [x] 03-01: Pipecat pipeline with DailyTransport, Deepgram STT, Cartesia TTS
+- [x] 03-02: GPT-4o integration with system prompts and function calling framework
+- [x] 03-03: Twilio SIP → Daily.co routing for PSTN inbound calls
+- [x] 03-04: Call state machine, transcript storage, and interruption handling
 
 ### Phase 4: Healthcare Call Flow
 **Goal**: All three call types work end-to-end: scheduling (verify → search → book → confirm → SMS), knowledge base answers, and clinical/emergency transfers. HIPAA verification gate enforced.
@@ -118,10 +118,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 06-01: React + Vite project setup, design system (Tailwind + Radix), routing
-- [ ] 06-02: Dashboard home (metrics cards, charts) and call history page (list + transcript viewer)
-- [ ] 06-03: Knowledge base management and provider settings pages
-- [ ] 06-04: Learning loop visibility page and real-time call status (WebSocket)
+- [x] 06-01: React + Vite project setup, design system (Tailwind + Radix), routing
+- [x] 06-02: Dashboard home (metrics cards, charts) and call history page (list + transcript viewer)
+- [x] 06-03: Knowledge base management and provider settings pages
+- [x] 06-04: Learning loop visibility page and real-time call status (WebSocket)
 
 ## Progress
 
@@ -131,8 +131,8 @@ Phase 1 → Phase 2 & 3 (parallel) → Phase 4 → Phase 5 & 6 (parallel)
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | ✅ Done | 2026-02-09 |
-| 2. EHR Service | 0/3 | Not started | - |
-| 3. Voice Pipeline | 0/4 | Not started | - |
+| 2. EHR Service | 3/3 | ✅ Done | 2026-02-09 |
+| 3. Voice Pipeline | 4/4 | ✅ Done | 2026-02-09 |
 | 4. Healthcare Call Flow | 0/4 | Not started | - |
 | 5. Learning Engine | 0/3 | Not started | - |
-| 6. Provider Dashboard | 0/4 | Not started | - |
+| 6. Provider Dashboard | 4/4 | ✅ Done | 2026-02-10 |

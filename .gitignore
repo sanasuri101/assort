@@ -32,6 +32,10 @@ Thumbs.db
 
 # Logs
 *.log
+test_log.txt
+backend/test_output.txt
+backend/test_results.txt
+backend/test_imports.py
 
 # Planning (keep in git)
 # .planning/ — intentionally tracked

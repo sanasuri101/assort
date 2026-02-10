@@ -17,7 +17,9 @@ from redis.asyncio import Redis
 from app.config import settings
 from app.middleware.auth import verify_api_key
 from app.middleware.hipaa_audit import HIPAAAuditMiddleware
+from app.routers.voice import router as voice_router
 from app.routers.health import router as health_router
+from app.routers.ehr import router as ehr_router
 
 # Configure logging
 logging.basicConfig(
@@ -29,8 +31,13 @@ logger = logging.getLogger("assort_health")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle — Redis connection."""
+    """Manage application lifecycle — Key validation & Redis connection."""
     # Startup
+    from app.utils.validate_keys import validate_all_keys
+    if not await validate_all_keys():
+        logger.critical("Startup failed due to invalid or missing configuration.")
+        raise RuntimeError("Configuration validation failed")
+
     app.state.redis = Redis.from_url(
         settings.redis_url,
         decode_responses=True,
@@ -41,6 +48,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Redis connection failed: %s (app will start anyway)", e)
 
+    # Initialize EHR Service (using factory)
+    from app.services.ehr.factory import get_ehr_service
+    app.state.ehr_service = get_ehr_service()
+    logger.info("EHR Service initialized via factory")
     yield
 
     # Shutdown
@@ -59,7 +70,7 @@ app = FastAPI(
 # Add CORS first so it runs last (after HIPAA audit)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=["http://localhost:5173", "http://localhost:3000"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,8 +80,15 @@ app.add_middleware(
 app.add_middleware(HIPAAAuditMiddleware)
 
 
-# Include routers
-app.include_router(health_router)
+# Routes
+# Routes
+from app.routers import health, ehr, voice
+from app.api import dashboard
+
+app.include_router(health.router, prefix="/health", tags=["Health"])
+app.include_router(ehr.router, prefix="/ehr", tags=["EHR"])
+app.include_router(voice.router, prefix="/voice", tags=["Voice"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 
 
 @app.get("/api/protected")

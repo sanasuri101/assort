@@ -1,0 +1,5 @@
+# Voice Pipeline Requirements (Linux-only due to daily-python)
+pipecat-ai[daily,google,deepgram,cartesia,silero]
+google-genai
+weave
+wandb
