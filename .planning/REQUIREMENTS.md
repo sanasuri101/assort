@@ -118,13 +118,55 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| *(Populated during roadmap creation)* | — | — |
+| FNDN-01 | Phase 1 | Pending |
+| FNDN-02 | Phase 1 | Pending |
+| FNDN-03 | Phase 1 | Pending |
+| FNDN-04 | Phase 1 | Pending |
+| HIPA-01 | Phase 1 | Pending |
+| HIPA-02 | Phase 1 | Pending |
+| HIPA-03 | Phase 4 | Pending |
+| HIPA-04 | Phase 4 | Pending |
+| HIPA-05 | Phase 4 | Pending |
+| HIPA-06 | Phase 1 | Pending |
+| EHR-01 | Phase 2 | Pending |
+| EHR-02 | Phase 2 | Pending |
+| EHR-03 | Phase 2 | Pending |
+| EHR-04 | Phase 2 | Pending |
+| EHR-05 | Phase 2 | Pending |
+| VOIC-01 | Phase 3 | Pending |
+| VOIC-02 | Phase 3 | Pending |
+| VOIC-03 | Phase 3 | Pending |
+| VOIC-04 | Phase 3 | Pending |
+| VOIC-05 | Phase 3 | Pending |
+| VOIC-06 | Phase 3 | Pending |
+| VOIC-07 | Phase 3 | Pending |
+| VOIC-08 | Phase 3 | Pending |
+| CALL-01 | Phase 3 | Pending |
+| CALL-02 | Phase 4 | Pending |
+| CALL-03 | Phase 4 | Pending |
+| CALL-04 | Phase 4 | Pending |
+| CALL-05 | Phase 4 | Pending |
+| CALL-06 | Phase 4 | Pending |
+| TRNS-01 | Phase 3 | Pending |
+| TRNS-02 | Phase 4 | Pending |
+| TRNS-03 | Phase 4 | Pending |
+| LERN-01 | Phase 5 | Pending |
+| LERN-02 | Phase 5 | Pending |
+| LERN-03 | Phase 5 | Pending |
+| LERN-04 | Phase 5 | Pending |
+| LERN-05 | Phase 5 | Pending |
+| DASH-01 | Phase 6 | Pending |
+| DASH-02 | Phase 6 | Pending |
+| DASH-03 | Phase 6 | Pending |
+| DASH-04 | Phase 6 | Pending |
+| DASH-05 | Phase 6 | Pending |
+| SMS-01 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 35 total
-- Mapped to phases: 0
-- Unmapped: 35 ⚠️
+- Mapped to phases: 35
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 after initial definition*
+*Last updated: 2026-02-09 after roadmap creation*
