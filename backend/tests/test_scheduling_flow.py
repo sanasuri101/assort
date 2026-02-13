@@ -4,9 +4,7 @@ Test the full scheduling flow with mocked EHR and gated tools.
 
 import pytest
 import json
-from datetime import date, datetime, timedelta
-
-import fakeredis.aioredis
+from datetime import date, timedelta
 
 from app.services.ehr.mock import MockEHRAdapter
 from app.voice.call_state import CallStateMachine, CallState
@@ -19,15 +17,8 @@ from app.voice.tools import (
 
 
 @pytest.fixture
-async def redis_client():
-    r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    yield r
-    await r.close()
-
-
-@pytest.fixture
-def call_state(redis_client):
-    return CallStateMachine(redis_client)
+def call_state(redis_service):
+    return CallStateMachine(redis_service)
 
 
 @pytest.fixture

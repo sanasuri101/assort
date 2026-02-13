@@ -1,53 +1,6 @@
 """Shared test fixtures for Assort Health backend tests."""
 
-import sys
-from unittest.mock import MagicMock, AsyncMock
-
-# Helper to mock a module structure
-def mock_module(name):
-    parts = name.split('.')
-    for i in range(1, len(parts) + 1):
-        module_name = '.'.join(parts[:i])
-        if module_name not in sys.modules:
-            sys.modules[module_name] = MagicMock()
-
-# Patch sentry_sdk.Hub for compatibility with Sentry 2.x during collection
-import sys
-from unittest.mock import MagicMock
-mock_module("sentry_sdk")
-import sentry_sdk
-sentry_sdk.Hub = MagicMock()
-sys.modules['sentry_sdk.hub'] = MagicMock()
-sys.modules['sentry_sdk.Hub'] = MagicMock()
-
-# Mock all used pipecat modules globally for tests
-modules_to_mock = [
-    "pipecat",
-    "pipecat.pipeline",
-    "pipecat.pipeline.pipeline",
-    "pipecat.pipeline.runner",
-    "pipecat.pipeline.task",
-    "pipecat.frames",
-    "pipecat.frames.frames",
-    "pipecat.processors",
-    "pipecat.processors.frame_processor",
-    "pipecat.processors.aggregators",
-    "pipecat.processors.aggregators.openai_llm_context",
-    "pipecat.services",
-    "pipecat.services.deepgram",
-    "pipecat.services.cartesia",
-    "pipecat.services.openai",
-    "pipecat.transports",
-    "pipecat.transports.services",
-    "pipecat.transports.services.daily",
-    "pipecat.vad",
-    "pipecat.vad.silero",
-    "daily",
-    # "redis", # redis is installed, but redis.asyncio might use binary extensions? usually fine.
-]
-
-for m in modules_to_mock:
-    mock_module(m)
+# Sentry and Pipecat mocks removed. Tests will use real libraries if installed.
 
 import httpx
 import pytest
@@ -56,21 +9,37 @@ import pytest_asyncio
 from app.main import app
 
 
-@pytest.fixture
-def mock_redis():
-    """Create a mock Redis client with common operations."""
-    redis = AsyncMock()
-    redis.ping = AsyncMock(return_value=True)
-    redis.get = AsyncMock(return_value=None)
-    redis.set = AsyncMock(return_value=True)
-    redis.close = AsyncMock()
-    return redis
+@pytest_asyncio.fixture
+async def redis_client():
+    """Fixture for real Redis client connected to test database."""
+    from app.config import settings
+    from redis.asyncio import Redis
+    
+    # Use a specific database for testing if possible, or just the default
+    # But for simplicity, we'll use the configured URL
+    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    await client.ping()
+    yield client
+    await client.close()
 
 
 @pytest_asyncio.fixture
-async def client(mock_redis):
-    """Async HTTP client with mocked Redis and EHR service."""
-    app.state.redis = mock_redis
+async def redis_service(redis_client):
+    """Fixture for real RedisService, ensuring it's used as a singleton."""
+    from app.services.redis_service import RedisService, get_redis_service
+    import app.services.redis_service as rs
+    
+    service = RedisService()
+    service.client = redis_client
+    # Overwrite the singleton for app code
+    rs._redis_service = service
+    return service
+
+
+@pytest_asyncio.fixture
+async def client(redis_client, redis_service):
+    """Async HTTP client with real Redis and EHR service."""
+    app.state.redis = redis_client
     # Initialize EHR service for integration tests
     from app.services.ehr.mock import MockEHRAdapter
     app.state.ehr_service = MockEHRAdapter()

@@ -8,7 +8,6 @@ from app.services.ehr.interface import EHRService
 from app.services.ehr.models import Slot, Appointment, Patient, VisitType
 
 router = APIRouter(
-    prefix="/api/ehr",
     tags=["ehr"],
     responses={404: {"description": "Not found"}},
 )

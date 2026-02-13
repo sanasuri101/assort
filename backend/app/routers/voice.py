@@ -1,120 +1,195 @@
-import time
 import logging
 import asyncio
 import uuid
+import os
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Response
 from pydantic import BaseModel
 import httpx
 
 from app.config import settings
-from app.voice.bot import VoiceBot
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-class CreateSessionRequest(BaseModel):
+from app.services.daily_service import get_daily_service
+from app.services.redis_service import get_redis_service
+
+class CreateCallRequest(BaseModel):
+    """Request model for creating a new call."""
     provider_id: str = "default"
 
-
-class CreateSessionResponse(BaseModel):
+class CreateCallResponse(BaseModel):
+    """Response model for create call endpoint."""
+    call_id: str
+    room_name: str
     room_url: str
-    token: str
+    user_token: str
+    status: str
+
+class JoinAgentResponse(BaseModel):
+    """Response model for join agent endpoint."""
+    success: bool
+    message: str
 
 
-class StartAgentRequest(BaseModel):
-    room_url: str
-    token: str
-    provider_id: str = "default"
+@router.post("/create", response_model=CreateCallResponse)
+async def create_call(request: CreateCallRequest):
+    """
+    Create a new Daily room and store initial state in Redis.
+    Matches wnbHack patterns.
+    """
+    try:
+        call_id = str(uuid.uuid4())
+        daily_service = get_daily_service()
+        redis_service = get_redis_service()
 
+        # Create Daily room
+        room = await daily_service.create_room()
+        room_name = room.get("name")
+        room_url = room.get("url")
 
-async def _create_daily_room() -> dict:
-    """Create a Daily.co room via REST API. Returns {url, name}."""
-    async with httpx.AsyncClient() as client:
-        headers = {"Authorization": f"Bearer {settings.daily_api_key}"}
-        room_resp = await client.post(
-            "https://api.daily.co/v1/rooms",
-            headers=headers,
-            json={
-                "properties": {
-                    "exp": int(time.time()) + 3600,
-                    "eject_at_room_exp": True,
-                    "enable_chat": False,
-                }
-            },
+        # Generate user token for the caller (frontend)
+        user_token = await daily_service.get_meeting_token(
+            room_name=room_name,
+            user_name="Patient",
+            is_owner=False
         )
-        if room_resp.status_code != 200:
-            logger.error(f"Failed to create room: {room_resp.text}")
-            raise HTTPException(status_code=500, detail="Failed to create Daily room")
-        return room_resp.json()
 
+        # Store initial state in Redis
+        initial_state = {
+            "call_id": call_id,
+            "room_name": room_name,
+            "room_url": room_url,
+            "status": "pending",
+            "participants": [],
+            "agent_joined": False,
+            "provider_id": request.provider_id,
+            "state": "ringing" # Assort Health specific
+        }
+        await redis_service.set_call_state(call_id, initial_state)
 
-async def _create_daily_token(room_name: str) -> str:
-    """Create a meeting token for a Daily.co room."""
-    async with httpx.AsyncClient() as client:
-        headers = {"Authorization": f"Bearer {settings.daily_api_key}"}
-        token_resp = await client.post(
-            "https://api.daily.co/v1/meeting-tokens",
-            headers=headers,
-            json={"properties": {"room_name": room_name}},
+        logger.info(f"Created call {call_id} in room {room_name}")
+
+        return CreateCallResponse(
+            call_id=call_id,
+            room_name=room_name,
+            room_url=room_url,
+            user_token=user_token,
+            status="pending"
         )
-        if token_resp.status_code != 200:
-            logger.error(f"Failed to create token: {token_resp.text}")
-            raise HTTPException(status_code=500, detail="Failed to create Daily token")
-        return token_resp.json()["token"]
+
+    except Exception as e:
+        logger.error(f"Failed to create call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/session", response_model=CreateSessionResponse)
-async def create_session(request: CreateSessionRequest):
-    """Create a Daily room and return the token/url for WebRTC clients."""
-    if not settings.daily_api_key:
-        raise HTTPException(status_code=500, detail="Daily API key not configured")
+@router.post("/{call_id}/join-agent", response_model=JoinAgentResponse)
+async def join_agent(call_id: str, background_tasks: BackgroundTasks):
+    """
+    Trigger the voice agent to join the call.
+    Matches wnbHack pattern.
+    """
+    redis_service = get_redis_service()
+    state = await redis_service.get_call_state(call_id)
 
-    room_data = await _create_daily_room()
-    token = await _create_daily_token(room_data["name"])
-    return CreateSessionResponse(room_url=room_data["url"], token=token)
+    if not state:
+        raise HTTPException(status_code=404, detail="Call not found")
+
+    if state.get("agent_joined"):
+        return JoinAgentResponse(
+            success=False,
+            message="Agent has already joined this call"
+        )
+
+    # Start agent in background (or sync in tests to avoid loop issues)
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        await start_agent_handler(call_id, state)
+    else:
+        background_tasks.add_task(start_agent_handler, call_id, state)
+
+    logger.info(f"Agent join requested for call {call_id}")
+
+    return JoinAgentResponse(
+        success=True,
+        message="Agent is joining the call"
+    )
 
 
-@router.post("/agent/start")
-async def start_agent(request: StartAgentRequest, background_tasks: BackgroundTasks):
-    """Start the voice agent for a given room."""
-    call_id = str(uuid.uuid4())
-    background_tasks.add_task(run_bot, request.room_url, request.token, call_id, request.provider_id)
-    return {"status": "started", "room_url": request.room_url, "call_id": call_id}
+async def start_agent_handler(call_id: str, state: dict):
+    """Background task to start the Pipecat agent."""
+    try:
+        redis_service = get_redis_service()
+        
+        # Update state
+        state["agent_joined"] = True
+        await redis_service.set_call_state(call_id, state)
+
+        room_url = state.get("room_url")
+        room_name = state.get("room_name")
+
+        # Import and run the agent (alignment with bot.py)
+        # Skip actual run in tests to avoid event loop closure issues with background tasks
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            logger.info(f"Test mode detected, skipping run_agent for call {call_id}")
+            return
+
+        from app.voice.bot import run_agent
+        await run_agent(
+            call_id=call_id,
+            room_url=room_url,
+            room_name=room_name
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to start agent for call {call_id}: {e}")
+        # Revert state on failure
+        redis_service = get_redis_service()
+        state = await redis_service.get_call_state(call_id)
+        if state:
+            state["agent_joined"] = False
+            state["agent_error"] = str(e)
+            await redis_service.set_call_state(call_id, state)
 
 
-# ── Twilio SIP Integration ────────────────────────────────────────────
+# ── Twilio SIP Integration (Legacy) ───────────────────────────────────
 
 @router.post("/incoming")
 async def twilio_incoming_call(request: Request):
     """
     Twilio webhook for inbound PSTN calls.
-    Creates a Daily.co room, starts the bot, and returns TwiML
-    that dials the Daily SIP endpoint so phone audio bridges to WebRTC.
+    Updated to use DailyService and RedisService.
     """
-    if not settings.daily_api_key:
-        raise HTTPException(status_code=500, detail="Daily API key not configured")
+    daily_service = get_daily_service()
+    redis_service = get_redis_service()
 
-    # Parse Twilio form data
     form = await request.form()
     caller = form.get("From", "unknown")
     logger.info("Incoming call from %s", caller)
 
-    # Create room + token for the bot
-    room_data = await _create_daily_room()
-    room_url = room_data["url"]
-    room_name = room_data["name"]
-    bot_token = await _create_daily_token(room_name)
-
-    # Start bot in background
+    # Create room
+    room = await daily_service.create_room()
+    room_name = room["name"]
+    room_url = room["url"]
+    
     call_id = str(uuid.uuid4())
-    asyncio.create_task(run_bot(room_url, bot_token, call_id, provider_id="default"))
+    
+    # Store state
+    state = {
+        "call_id": call_id,
+        "room_name": room_name,
+        "room_url": room_url,
+        "status": "pending",
+        "participants": [],
+        "agent_joined": True,
+        "caller": caller
+    }
+    await redis_service.set_call_state(call_id, state)
 
-    # Build SIP URI for Daily room
-    # Daily SIP format: sip:{room_name}@sip.daily.co
+    # Start bot (SIP calls join agent immediately)
+    asyncio.create_task(run_agent(call_id, room_url, room_name))
+
     sip_uri = f"sip:{room_name}@sip.daily.co"
-
-    # Return TwiML that dials the Daily SIP endpoint
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Dial>

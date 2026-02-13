@@ -7,6 +7,7 @@ import json
 import logging
 import signal
 import sys
+import hashlib
 from redis.asyncio import Redis
 import weave
 
@@ -87,7 +88,9 @@ async def process_stream(redis: Redis, analyzer: CallAnalyzer):
                            logger.warning(f"Dropping candidate with PII: {cand.question}")
                            continue
                            
-                        cand_id = f"cand:{call_id}:{hash(cand.question)}"
+                        # Deterministic ID based on question hash
+                        q_hash = hashlib.md5(cand.question.encode()).hexdigest()[:10]
+                        cand_id = f"cand:{call_id}:{q_hash}"
                         # Store details
                         await redis.hset(cand_id, mapping=cand.model_dump())
                         # Push to review queue

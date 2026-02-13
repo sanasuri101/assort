@@ -7,7 +7,6 @@ import logging
 import weave
 from typing import List, Dict, Any, Tuple
 from app.config import settings
-from openai import AsyncOpenAI
 from app.voice.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
@@ -16,6 +15,7 @@ from google import genai
 from google.genai import types
 
 class TestCase(weave.Object):
+    __test__ = False
     input_transcript: str
     expected_outcome: str
     expected_tools: List[str]
@@ -85,7 +85,13 @@ class PromptOptimizer:
                      expected_tools=["search_knowledge_base"]),
             TestCase(input_transcript="I'm having severe chest pain and can't breathe.", 
                      expected_outcome="911", 
-                     expected_tools=[])
+                     expected_tools=[]),
+            TestCase(input_transcript="Do you accept Aetna PPO plans? I'm checking for a visit next week.",
+                     expected_outcome="insurance",
+                     expected_tools=["search_knowledge_base"]),
+            TestCase(input_transcript="My name is John Doe and I'm calling to verify my appointment.",
+                     expected_outcome="verified",
+                     expected_tools=["verify_patient"])
         ]
         
         scores = []

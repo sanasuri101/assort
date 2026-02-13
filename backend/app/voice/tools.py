@@ -8,11 +8,13 @@ a structured error that the LLM incorporates into its response.
 
 import json
 import logging
+import weave
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from app.services.ehr.interface import EHRService
 from app.voice.call_state import CallState, CallStateMachine
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +153,7 @@ def _gate_check_error() -> str:
     })
 
 
+@weave.op()
 async def execute_search_knowledge_base(
     call_id: str,
     call_state: CallStateMachine,
@@ -160,31 +163,37 @@ async def execute_search_knowledge_base(
 ) -> str:
     """Query knowledge base. UNGATED."""
     from app.voice.knowledge import KnowledgeBase
-    from app.config import settings
     
     # Initialize KB (could be singleton in real app)
     kb = KnowledgeBase(settings.redis_url)
     try:
-        results = await kb.query(query)
+        results = await kb.query(query, top_k=3)
         await kb.close()
         
         if not results:
-            return json.dumps({"found": False, "message": "I don't have that information handy. I can transfer you to the front desk if you like."})
+            return "No relevant information found in the knowledge base. I suggest asking the patient if they would like to be transferred to the front desk."
             
-        return json.dumps({
-            "found": True,
-            "answer": results[0]["content"]
-        })
+        # Format results for LLM (wnbHack pattern)
+        context_parts = []
+        for i, doc in enumerate(results, 1):
+            content = doc.get("content", "")
+            score = doc.get("score", 0)
+            source = doc.get("metadata", {}).get("key", "office_faq")
+            
+            context_parts.append(
+                f"[{i}] (relevance: {score:.2f}, source: {source})\n{content}"
+            )
+        
+        return "Relevant information found:\n\n" + "\n\n".join(context_parts)
+
     except Exception as e:
         logger.error(f"KB query error: {e}")
-        await kb.close()
-        return json.dumps({"error": "kb_error", "message": "I'm having trouble accessing my information database."})
-    return json.dumps({
-        "error": "identity_not_verified",
-        "message": "I need to verify your identity first. Can I get your full name and date of birth?",
-    })
+        if 'kb' in locals():
+            await kb.close()
+        return f"I'm sorry, I'm having trouble accessing the knowledge base right now. Error: {str(e)}"
 
 
+@weave.op()
 async def execute_verify_patient(
     call_id: str,
     call_state: CallStateMachine,
@@ -229,6 +238,7 @@ async def execute_verify_patient(
     })
 
 
+@weave.op()
 async def execute_get_availability(
     call_id: str,
     call_state: CallStateMachine,
@@ -262,6 +272,7 @@ async def execute_get_availability(
         return json.dumps({"error": "availability_error", "message": str(e)})
 
 
+@weave.op()
 async def execute_book_appointment(
     call_id: str,
     call_state: CallStateMachine,
@@ -317,6 +328,7 @@ async def execute_book_appointment(
         return json.dumps({"error": "booking_error", "message": str(e)})
 
 
+@weave.op()
 async def execute_check_insurance(
     call_id: str,
     call_state: CallStateMachine,
@@ -346,6 +358,7 @@ async def execute_check_insurance(
         return json.dumps({"error": "insurance_error", "message": str(e)})
 
 
+@weave.op()
 async def execute_list_providers(
     call_id: str,
     call_state: CallStateMachine,
@@ -385,6 +398,7 @@ TOOL_HANDLERS = {
 }
 
 
+@weave.op()
 async def dispatch_tool(
     tool_name: str,
     tool_args: Dict[str, Any],

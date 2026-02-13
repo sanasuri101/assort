@@ -122,7 +122,19 @@ async def get_call_detail(call_id: str):
         for i, line in enumerate(transcript_lines):
             try:
                 role, content = line.split(": ", 1)
-                transcript.append(TranscriptSegment(role=role.lower(), content=content, timestamp=i*2.0))
+                role = role.lower()
+                segment = TranscriptSegment(role=role, content=content, timestamp=i*2.0)
+                
+                # Try to parse tool details if it's a tool role
+                if role == "tool":
+                    # Simple heuristic: "tool: name(args) -> result" or just "tool: name"
+                    if "(" in content:
+                        t_name, rest = content.split("(", 1)
+                        segment.tool_name = t_name.strip()
+                    else:
+                        segment.tool_name = content.strip()
+                
+                transcript.append(segment)
             except:
                 transcript.append(TranscriptSegment(role="unknown", content=line, timestamp=i*2.0))
         

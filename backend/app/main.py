@@ -86,8 +86,8 @@ from app.routers import health, ehr, voice
 from app.api import dashboard
 
 app.include_router(health.router, prefix="/health", tags=["Health"])
-app.include_router(ehr.router, prefix="/ehr", tags=["EHR"])
-app.include_router(voice.router, prefix="/voice", tags=["Voice"])
+app.include_router(ehr.router, prefix="/api/ehr", tags=["EHR"])
+app.include_router(voice.router, prefix="/api/voice", tags=["Voice"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 
 

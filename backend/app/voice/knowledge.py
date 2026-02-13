@@ -16,8 +16,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Dimension for models/embedding-001
-EMBEDDING_DIM = 768
+# Dimension for models/embedding-001 (can be 3072 in some environments/versions)
+EMBEDDING_DIM = 3072
 INDEX_NAME = "idx:knowledge"
 
 
@@ -44,15 +44,15 @@ class KnowledgeBase:
     async def _create_index(self):
         """Create RediSearch vector index if not exists."""
         try:
-            from redis.commands.search.field import TextField, VectorField
-            from redis.commands.search.index_definition import IndexDefinition, IndexType
-            
             # Check if index exists
             try:
                 await self.redis.ft(INDEX_NAME).info()
                 return
-            except:
-                pass
+            except Exception as e:
+                logger.info(f"Index {INDEX_NAME} does not exist, creating... ({e})")
+            
+            from redis.commands.search.field import TextField, VectorField
+            from redis.commands.search.indexDefinition import IndexDefinition, IndexType
             
             schema = (
                 TextField("content"),
@@ -70,6 +70,7 @@ class KnowledgeBase:
             logger.info(f"Created RediSearch index: {INDEX_NAME}")
         except Exception as e:
             logger.error(f"Failed to create index: {e}")
+            raise # Propagate in tests
 
     async def seed(self, practice_data: Dict[str, str]):
         """Embed and store FAQ data in Redis with Vector Search."""

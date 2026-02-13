@@ -8,7 +8,6 @@ import re
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 from app.config import settings
-from openai import AsyncOpenAI
 import weave
 
 logger = logging.getLogger(__name__)

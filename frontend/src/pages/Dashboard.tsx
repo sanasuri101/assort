@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
     Phone,
     CheckCircle2,
     Clock,
     TrendingUp,
     PhoneIncoming,
-    AlertCircle
+    AlertCircle,
+    Play
 } from 'lucide-react';
 import {
     AreaChart,
@@ -59,6 +61,41 @@ export default function Dashboard() {
                     <h1 className="text-3xl font-bold tracking-tight">Practice Overview</h1>
                     <p className="text-muted-foreground mt-1">Real-time performance metrics for Valley Family Medicine.</p>
                 </div>
+
+                <Card className="bg-blue-600 text-white shadow-blue-500/20 border-none">
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                            <Phone className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-bold opacity-90">Developer Test Mode</p>
+                            <p className="text-[10px] opacity-70">Simulate a patient call via WebRTC</p>
+                        </div>
+                        <Button
+                            className="bg-white text-blue-600 hover:bg-white/90 gap-2 h-9 text-xs font-bold"
+                            onClick={async () => {
+                                try {
+                                    // 1. Create the call
+                                    const createRes = await axios.post('http://localhost:8000/voice/create', {
+                                        provider_id: 'provider-1'
+                                    });
+                                    const { call_id, room_url } = createRes.data;
+
+                                    // 2. Trigger the agent
+                                    await axios.post(`http://localhost:8000/voice/${call_id}/join-agent`);
+
+                                    // 3. Join as user in new tab
+                                    window.open(room_url, '_blank');
+                                } catch (err) {
+                                    console.error("Failed to start test call:", err);
+                                    alert("Check console - is backend running?");
+                                }
+                            }}
+                        >
+                            <Play className="h-3.5 w-3.5 fill-current" /> Start Simulator
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Stats Grid */}

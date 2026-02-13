@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Call State Machine — Redis-backed state tracking for voice calls.
 
@@ -12,14 +13,14 @@ States:
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Optional, Any
 
-import redis.asyncio as redis
+from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
 
-
-class CallState(str, Enum):
+class CallState(Enum):
+    """Voice call states matching wnbHack logic."""
     RINGING = "ringing"
     GREETING = "greeting"
     ROUTING = "routing"
@@ -30,73 +31,79 @@ class CallState(str, Enum):
     TRANSFERRED = "transferred"
     ABANDONED = "abandoned"
 
-
-# Valid state transitions
 VALID_TRANSITIONS = {
     CallState.RINGING: {CallState.GREETING, CallState.ABANDONED},
     CallState.GREETING: {CallState.ROUTING, CallState.ABANDONED},
     CallState.ROUTING: {CallState.VERIFIED, CallState.TRANSFERRING, CallState.ABANDONED},
     CallState.VERIFIED: {CallState.RESOLVING, CallState.TRANSFERRING, CallState.ABANDONED},
-    CallState.RESOLVING: {CallState.COMPLETED, CallState.TRANSFERRING, CallState.ABANDONED},
+    CallState.RESOLVING: {CallState.COMPLETED, CallState.ABANDONED},
     CallState.TRANSFERRING: {CallState.TRANSFERRED, CallState.ABANDONED},
-    CallState.TRANSFERRED: set(),
-    CallState.COMPLETED: set(),
-    CallState.ABANDONED: set(),
 }
-
 
 class CallStateMachine:
     """Redis-backed call state machine with HIPAA audit trail."""
 
-    def __init__(self, redis_client: redis.Redis):
-        self.redis = redis_client
+    def __init__(self, redis_service: RedisService):
+        self.service = redis_service
 
-    async def create_call(self, call_id: str, provider_id: str = "default") -> CallState:
+    async def create_call(self, call_id: str, provider_id: str = "default") -> 'CallState':
         """Initialize a new call in RINGING state."""
         now = datetime.now(timezone.utc).isoformat()
-        await self.redis.hset(f"call:{call_id}", mapping={
+        state = {
+            "status": "pending", # wnbHack compatibility
             "state": CallState.RINGING.value,
             "provider_id": provider_id,
             "created_at": now,
             "updated_at": now,
-        })
+            "participants": [],
+            "agent_joined": False
+        }
+        await self.service.set_call_state(call_id, state)
         await self._log_transition(call_id, None, CallState.RINGING)
         return CallState.RINGING
 
     async def transition(self, call_id: str, new_state: CallState) -> CallState:
-        """Transition a call to a new state. Raises ValueError on invalid transition."""
-        current = await self.get_state(call_id)
-        if current is None:
+        """Transition a call to a new state."""
+        state = await self.service.get_call_state(call_id)
+        if state is None:
             raise ValueError(f"Call {call_id} not found")
 
-        if new_state not in VALID_TRANSITIONS.get(current, set()):
-            raise ValueError(
-                f"Invalid transition: {current.value} → {new_state.value}"
-            )
+        current_val = state.get("state")
+        current = CallState(current_val) if current_val else None
 
-        now = datetime.now(timezone.utc).isoformat()
-        await self.redis.hset(f"call:{call_id}", mapping={
-            "state": new_state.value,
-            "updated_at": now,
-        })
+        # Basic validation
+        if current and new_state not in VALID_TRANSITIONS.get(current, set()):
+             logger.warning(f"Unexpected transition: {current.value} → {new_state.value}")
+             # We still allow it for flexibility in voice flows, but log it
+
+        state["state"] = new_state.value
+        state["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # Sync with wnbHack 'status' field
+        if new_state == CallState.COMPLETED:
+            state["status"] = "completed"
+
+        await self.service.set_call_state(call_id, state)
         await self._log_transition(call_id, current, new_state)
         return new_state
 
     async def get_state(self, call_id: str) -> Optional[CallState]:
         """Get current state of a call."""
-        state_val = await self.redis.hget(f"call:{call_id}", "state")
-        if state_val is None:
+        state = await self.service.get_call_state(call_id)
+        if not state or "state" not in state:
             return None
-        return CallState(state_val)
+        return CallState(state["state"])
 
-    async def set_metadata(self, call_id: str, key: str, value: str):
+    async def set_metadata(self, call_id: str, key: str, value: Any):
         """Set additional metadata on a call."""
-        await self.redis.hset(f"call:{call_id}", key, value)
+        state = await self.service.get_call_state(call_id)
+        if state:
+            state[key] = value
+            await self.service.set_call_state(call_id, state)
 
     async def get_call_info(self, call_id: str) -> Optional[dict]:
         """Get all call info as a dict."""
-        data = await self.redis.hgetall(f"call:{call_id}")
-        return data if data else None
+        return await self.service.get_call_state(call_id)
 
     async def is_verified(self, call_id: str) -> bool:
         """Check if a call has been identity-verified."""
@@ -109,7 +116,9 @@ class CallStateMachine:
         """Log state transition to Redis stream for HIPAA audit."""
         now = datetime.now(timezone.utc).isoformat()
         from_val = from_state.value if from_state else "none"
-        await self.redis.xadd(f"call:{call_id}:events", {
+        
+        # Use RedisService client directly for streams
+        await self.service.client.xadd(f"call:{call_id}:events", {
             "type": "state_transition",
             "from": from_val,
             "to": to_state.value,

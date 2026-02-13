@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get("")
 async def health(request: Request):
     """Basic health check with Redis status."""
     try:
@@ -27,7 +27,7 @@ async def health(request: Request):
     }
 
 
-@router.get("/health/detailed")
+@router.get("/detailed")
 async def health_detailed(request: Request):
     """Detailed health check with per-service status and latency."""
     services = {
