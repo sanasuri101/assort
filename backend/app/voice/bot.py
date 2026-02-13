@@ -31,6 +31,9 @@ from app.voice.prompts import get_post_verification_prompt
 from app.voice.prompt_manager import PromptManager
 from app.voice.knowledge import KnowledgeBase, VALLEY_FAMILY_MEDICINE_FAQ
 from app.voice.tools import TOOL_SCHEMAS, dispatch_tool
+from app.voice.thinking_phrases import get_thinking_phrase, clear_call_phrases
+from app.voice.latency import LatencyTracker
+from app.voice.kb_prefetch import KBPrefetcher
 from app.services.ehr.factory import get_ehr_service
 from app.services.redis_service import RedisService
 
@@ -92,7 +95,12 @@ async def run_agent(
 ) -> None:
     """
     Run the Pipecat voice agent for a specific call.
-    Matches the pattern from wnbHack's bot.py.
+
+    Latency-optimized pipeline:
+      - KB pre-loaded at call start (warm connection, seeded)
+      - Thinking phrases fill dead air during tool calls
+      - KB prefetcher starts lookups on stabilized STT partials
+      - Latency tracker measures TTFT/TTFA per turn
     """
     # Initialize Weave for real-time observability (wnbHack pattern extension)
     weave.init(f"assort-health-{settings.practice_name.lower().replace(' ', '-')}")
@@ -111,6 +119,13 @@ async def run_agent(
     daily_service = get_daily_service()
     ehr_service = get_ehr_service()
     prompt_manager = PromptManager()
+
+    # ── Context Pre-Loading ─────────────────────────────────────────
+    # Create KB singleton ONCE at call start. Seed FAQ data.
+    # The KB connection stays warm for the entire call duration.
+    kb = KnowledgeBase(settings.redis_url)
+    await kb.seed(VALLEY_FAMILY_MEDICINE_FAQ)
+    logger.info(f"[PRELOAD] KB pre-loaded with {len(VALLEY_FAMILY_MEDICINE_FAQ)} FAQ items")
 
     # Generate bot token
     bot_token = await daily_service.get_meeting_token(
@@ -170,19 +185,43 @@ async def run_agent(
         # Emergency Detector
         emergency_detector = EmergencyDetector()
 
-        # Tool handler (Healthcare specific)
+        # ── Latency-Optimized Processors ────────────────────────────
+        # Latency Tracker: measures TTFT, TTFA, tool duration per turn
+        latency_tracker = LatencyTracker(
+            call_id=call_id,
+            redis_service=redis_service,
+        )
+
+        # KB Prefetcher: speculative lookups on stabilized STT partials
+        kb_prefetcher = KBPrefetcher(kb=kb)
+
+        # Tool handler (Healthcare specific) — with thinking phrases + latency
         @weave.op()
         async def tools_handler(function_name, tool_call_id, args, llm, context, result_callback):
             logger.info(f"[Tool Call] {function_name}: {args}")
-            
-            # Execute tool
+
+            # ── Thinking Phrase ─────────────────────────────────
+            # Emit a filler phrase BEFORE the tool executes so the
+            # patient hears something immediately instead of dead air.
+            phrase = get_thinking_phrase(function_name, call_id=call_id)
+            await task.queue_frames([TextFrame(phrase)])
+            logger.info(f"[THINKING] Emitted: \"{phrase}\"")
+
+            # ── Latency Tracking ────────────────────────────────
+            latency_tracker.mark_tool_start()
+
+            # ── Execute Tool (with prefetch shortcut for KB) ────
             result_json = await dispatch_tool(
                 function_name, 
                 args, 
                 call_id, 
                 call_state_machine, 
-                ehr_service
+                ehr_service,
+                kb=kb,
+                prefetcher=kb_prefetcher,
             )
+
+            latency_tracker.mark_tool_end()
             
             # Identity Verification Gate
             if function_name == "verify_patient":
@@ -209,22 +248,23 @@ async def run_agent(
                 format=tool["function"]
             )
 
-        # Build the pipeline (wnbHack recommended order)
+        # Build the latency-optimized pipeline
+        # Order: Input → STT → Prefetch → Emergency → Log → Aggregate → LLM
+        #         → Latency → Log → TTS → Output → Aggregate
         pipeline = Pipeline([
             transport.input(),              # Audio input from Daily
             stt,                            # Deepgram STT
+            kb_prefetcher,                  # Speculative KB lookup on partials
             emergency_detector,             # Emergency Scanner
             user_transcript_logger,         # Log user speech
             user_aggregator,                # Aggregate user speech
             llm,                            # Gemini LLM
+            latency_tracker,                # TTFT/TTFA/tool instrumentation
             assistant_transcript_logger,    # Log assistant response (buffered)
             tts,                            # Cartesia TTS
             transport.output(),             # Audio output to Daily
             assistant_aggregator,           # Aggregate assistant response
         ])
-
-        # VAD is handled by transport params in this pipeline, or can be added as a processor
-        # For simplicity and stability in 0.0.52, we rely on transport VAD if configured
 
         # Runner and Task
         runner = PipelineRunner()
@@ -264,6 +304,17 @@ async def run_agent(
         logger.error(f"Agent error for call {call_id}: {e}", exc_info=True)
         raise
     finally:
+        # ── Cleanup ─────────────────────────────────────────────────
+        # Log latency summary before shutdown
+        summary = latency_tracker.get_summary()
+        logger.info(f"[CALL END] Latency summary for {call_id}: {summary}")
+
+        # Clean up thinking phrase tracking
+        clear_call_phrases(call_id)
+
+        # Close KB connection
+        await kb.close()
+
         await presence_handler.on_call_ended()
         logger.info(f"Agent exited for call {call_id}")
 

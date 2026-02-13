@@ -160,37 +160,57 @@ async def execute_search_knowledge_base(
     ehr_service: EHRService,
     *,
     query: str,
+    kb: 'KnowledgeBase | None' = None,
+    prefetcher=None,
 ) -> str:
-    """Query knowledge base. UNGATED."""
-    from app.voice.knowledge import KnowledgeBase
-    
-    # Initialize KB (could be singleton in real app)
-    kb = KnowledgeBase(settings.redis_url)
-    try:
-        results = await kb.query(query, top_k=3)
-        await kb.close()
-        
-        if not results:
-            return "No relevant information found in the knowledge base. I suggest asking the patient if they would like to be transferred to the front desk."
-            
-        # Format results for LLM (wnbHack pattern)
-        context_parts = []
-        for i, doc in enumerate(results, 1):
-            content = doc.get("content", "")
-            score = doc.get("score", 0)
-            source = doc.get("metadata", {}).get("key", "office_faq")
-            
-            context_parts.append(
-                f"[{i}] (relevance: {score:.2f}, source: {source})\n{content}"
-            )
-        
-        return "Relevant information found:\n\n" + "\n\n".join(context_parts)
+    """Query knowledge base. UNGATED.
 
-    except Exception as e:
-        logger.error(f"KB query error: {e}")
-        if 'kb' in locals():
-            await kb.close()
-        return f"I'm sorry, I'm having trouble accessing the knowledge base right now. Error: {str(e)}"
+    Optimized for latency:
+      1. Check prefetch cache (populated by KBPrefetcher during STT)
+      2. Fall back to shared KB instance (passed from bot.py)
+      3. Last resort: create a new KB instance
+    """
+    results = None
+
+    # ── Try prefetch cache first (near-zero latency) ────────────
+    if prefetcher is not None:
+        results = prefetcher.get_cached_result(query)
+        if results is not None:
+            logger.info(f"[KB] Using prefetched results for: '{query[:50]}'")
+
+    # ── Fall back to shared KB instance ─────────────────────────
+    if results is None:
+        try:
+            _kb = kb
+            if _kb is None:
+                from app.voice.knowledge import KnowledgeBase
+                _kb = KnowledgeBase(settings.redis_url)
+
+            results = await _kb.query(query, top_k=3)
+
+            # Only close if we created a new instance
+            if kb is None and _kb is not None:
+                await _kb.close()
+
+        except Exception as e:
+            logger.error(f"KB query error: {e}")
+            return f"I'm sorry, I'm having trouble accessing the knowledge base right now. Error: {str(e)}"
+
+    if not results:
+        return "No relevant information found in the knowledge base. I suggest asking the patient if they would like to be transferred to the front desk."
+
+    # Format results for LLM with metadata
+    context_parts = []
+    for i, doc in enumerate(results, 1):
+        content = doc.get("content", "")
+        score = doc.get("score", 0)
+        source = doc.get("category", doc.get("source_key", "office_faq"))
+
+        context_parts.append(
+            f"[{i}] (relevance: {score:.2f}, source: {source})\n{content}"
+        )
+
+    return "Relevant information found:\n\n" + "\n\n".join(context_parts)
 
 
 @weave.op()
@@ -405,10 +425,21 @@ async def dispatch_tool(
     call_id: str,
     call_state: CallStateMachine,
     ehr_service: EHRService,
+    kb=None,
+    prefetcher=None,
 ) -> str:
-    """Route a function call to the appropriate handler."""
+    """Route a function call to the appropriate handler.
+
+    For search_knowledge_base: passes shared KB instance and prefetch
+    cache to avoid creating new connections and eliminate latency.
+    """
     handler = TOOL_HANDLERS.get(tool_name)
     if handler is None:
         return json.dumps({"error": "unknown_tool", "message": f"Unknown tool: {tool_name}"})
+
+    # Inject KB and prefetcher for knowledge base lookups
+    if tool_name == "search_knowledge_base":
+        tool_args["kb"] = kb
+        tool_args["prefetcher"] = prefetcher
 
     return await handler(call_id, call_state, ehr_service, **tool_args)
