@@ -47,7 +47,7 @@ export default function Dashboard() {
     const { data: stats, isLoading } = useQuery({
         queryKey: ['dashboard-stats'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/stats');
+            const res = await axios.get('http://localhost:8080/api/dashboard/stats');
             return res.data;
         },
     });
@@ -76,13 +76,13 @@ export default function Dashboard() {
                             onClick={async () => {
                                 try {
                                     // 1. Create the call
-                                    const createRes = await axios.post('http://localhost:8000/voice/create', {
+                                    const createRes = await axios.post('http://localhost:8080/api/voice/create', {
                                         provider_id: 'provider-1'
                                     });
                                     const { call_id, room_url } = createRes.data;
 
                                     // 2. Trigger the agent
-                                    await axios.post(`http://localhost:8000/voice/${call_id}/join-agent`);
+                                    await axios.post(`http://localhost:8080/api/voice/${call_id}/join-agent`);
 
                                     // 3. Join as user in new tab
                                     window.open(room_url, '_blank');

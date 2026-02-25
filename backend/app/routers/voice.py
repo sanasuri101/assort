@@ -187,6 +187,7 @@ async def twilio_incoming_call(request: Request):
     await redis_service.set_call_state(call_id, state)
 
     # Start bot (SIP calls join agent immediately)
+    from app.voice.bot import run_agent
     asyncio.create_task(run_agent(call_id, room_url, room_name))
 
     sip_uri = f"sip:{room_name}@sip.daily.co"
@@ -209,15 +210,4 @@ async def twilio_call_status(request: Request):
     logger.info("Twilio status update: call=%s status=%s", call_sid, call_status)
     return {"received": True}
 
-
-# ── Bot Runner ─────────────────────────────────────────────────────────
-
-async def run_bot(room_url: str, token: str, call_id: str, provider_id: str):
-    try:
-        logger.info(f"Starting bot for room {room_url} with call_id {call_id}")
-        bot = VoiceBot(room_url, token, call_id, provider_id)
-        await bot.start()
-        logger.info(f"Bot finished for room {room_url}")
-    except Exception as e:
-        logger.error(f"Bot failed: {e}")
 

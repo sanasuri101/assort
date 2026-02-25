@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # External Services
     gemini_api_key: str = ""
     embedding_model: str = "models/gemini-embedding-001"
-    voice_model: str = "gemini-2.0-flash"
+    voice_model: str = "gemini-2.5-flash-lite"
     
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"

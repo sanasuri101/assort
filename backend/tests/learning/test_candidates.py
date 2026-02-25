@@ -3,13 +3,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.learning.analysis import CallAnalyzer, CallAnalysis, KnowledgeCandidate, PIIFilter
 
 @pytest.fixture
-def mock_openai():
-    with patch("app.learning.analysis.AsyncOpenAI") as mock:
+def mock_genai():
+    with patch("app.learning.analysis.genai") as mock:
         yield mock
 
 @pytest.fixture
 def mock_weave():
     with patch("app.learning.analysis.weave") as mock:
+        mock.op = lambda: (lambda f: f)  # Make @weave.op() a no-op decorator
         yield mock
 
 def test_pii_filter():
@@ -32,11 +33,10 @@ def test_candidate_pii_validation():
     assert "test@example.com" not in cand.question
 
 @pytest.mark.asyncio
-async def test_extract_candidates(mock_openai, mock_weave):
-    # Mock LLM response with candidates
-    mock_client = mock_openai.return_value
+async def test_extract_candidates(mock_genai, mock_weave):
+    # Mock Gemini response with candidates
     mock_response = MagicMock()
-    mock_response.choices[0].message.content = """
+    mock_response.text = """
     {
         "summary": "User asked about wifi.",
         "outcome": "answered",
@@ -52,11 +52,12 @@ async def test_extract_candidates(mock_openai, mock_weave):
         ]
     }
     """
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-    
+    mock_client = mock_genai.Client.return_value
+    mock_client.models.generate_content.return_value = mock_response
+
     analyzer = CallAnalyzer()
     result = await analyzer.analyze_transcript("call-1", "user: wifi?")
-    
+
     assert len(result.knowledge_candidates) == 1
     cand = result.knowledge_candidates[0]
     assert cand.question == "Do you have wifi?"

@@ -242,8 +242,8 @@ async def execute_verify_patient(
     # Verification success — transition state
     try:
         current_state = await call_state.get_state(call_id)
-        # Allow transition from ROUTING or GREETING
-        if current_state in (CallState.ROUTING, CallState.GREETING):
+        # Allow transition from any pre-verified state
+        if current_state in (CallState.RINGING, CallState.GREETING, CallState.ROUTING):
             await call_state.transition(call_id, CallState.VERIFIED)
         await call_state.set_metadata(call_id, "patient_id", patient.id)
         await call_state.set_metadata(call_id, "patient_name", patient.name[0].full_name)
@@ -437,9 +437,14 @@ async def dispatch_tool(
     if handler is None:
         return json.dumps({"error": "unknown_tool", "message": f"Unknown tool: {tool_name}"})
 
-    # Inject KB and prefetcher for knowledge base lookups
+    # Pass KB and prefetcher as separate kwargs — NOT in tool_args.
+    # tool_args is serialized back into a glm.FunctionCall protobuf by
+    # Pipecat's GoogleAssistantContextAggregator; Python objects in it
+    # cause "Unable to coerce value" ValueError.
     if tool_name == "search_knowledge_base":
-        tool_args["kb"] = kb
-        tool_args["prefetcher"] = prefetcher
+        return await handler(
+            call_id, call_state, ehr_service,
+            kb=kb, prefetcher=prefetcher, **tool_args,
+        )
 
     return await handler(call_id, call_state, ehr_service, **tool_args)

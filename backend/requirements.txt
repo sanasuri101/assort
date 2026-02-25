@@ -14,3 +14,6 @@ google-genai
 openai>=1.0.0
 pipecat-ai[daily,google,deepgram,cartesia,silero,openai]
 weave
+numpy
+aiohttp
+twilio

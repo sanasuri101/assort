@@ -72,7 +72,7 @@ INFERENCE_QUERIES = [
 
 # ── Core Tests ──────────────────────────────────────────────────────────
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_seed_indexes_all_documents(seeded_kb):
     """Verify all 7 FAQ items are indexed."""
     keys = await seeded_kb.redis.keys("knowledge:*")
@@ -83,7 +83,7 @@ async def test_seed_indexes_all_documents(seeded_kb):
     assert num_docs == 7, f"Index has {num_docs} docs, expected 7"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 @pytest.mark.parametrize("query,expected_category,expected_substr", DIRECT_MATCH_QUERIES)
 async def test_direct_match(seeded_kb, query, expected_category, expected_substr):
     """Direct queries should match the correct FAQ category."""
@@ -98,7 +98,7 @@ async def test_direct_match(seeded_kb, query, expected_category, expected_substr
     assert top["score"] > 0.6, f"Score {top['score']:.3f} below threshold"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 @pytest.mark.parametrize("query,expected_category,expected_substr", SEMANTIC_MATCH_QUERIES)
 async def test_semantic_match(seeded_kb, query, expected_category, expected_substr):
     """Semantically related queries should resolve to the right FAQ."""
@@ -109,7 +109,7 @@ async def test_semantic_match(seeded_kb, query, expected_category, expected_subs
         f"Expected category '{expected_category}', got '{results[0]['category']}'"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 @pytest.mark.parametrize("query,expected_category,expected_substr", PARAPHRASED_QUERIES)
 async def test_paraphrased(seeded_kb, query, expected_category, expected_substr):
     """Paraphrased queries should still retrieve the correct FAQ entry."""
@@ -119,7 +119,7 @@ async def test_paraphrased(seeded_kb, query, expected_category, expected_substr)
     assert results[0]["category"] == expected_category
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 @pytest.mark.parametrize("query,expected_category,expected_substr", INFERENCE_QUERIES)
 async def test_inference(seeded_kb, query, expected_category, expected_substr):
     """Queries requiring inference should still find relevant FAQ entries."""
@@ -130,7 +130,7 @@ async def test_inference(seeded_kb, query, expected_category, expected_substr):
 
 # ── Edge Cases ──────────────────────────────────────────────────────────
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_irrelevant_query_returns_nothing(seeded_kb):
     """Completely irrelevant queries should return 0 results."""
     results = await seeded_kb.query("What is the capital of France?")
@@ -138,7 +138,7 @@ async def test_irrelevant_query_returns_nothing(seeded_kb):
         f"Expected 0 results for irrelevant query, got {len(results)}: {results}"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_multi_result_ranking(seeded_kb):
     """top_k=3 should return correctly ranked results."""
     results = await seeded_kb.query("What are your office hours and location?", top_k=3)
@@ -149,7 +149,7 @@ async def test_multi_result_ranking(seeded_kb):
             f"Results not sorted: [{i}]={results[i]['score']:.3f} < [{i+1}]={results[i+1]['score']:.3f}"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_all_scores_above_threshold(seeded_kb):
     """Every returned result must exceed the similarity threshold."""
     for q in ["office hours", "insurance plans", "new patient"]:
@@ -160,7 +160,7 @@ async def test_all_scores_above_threshold(seeded_kb):
 
 # ── New: Architecture-Specific Tests ────────────────────────────────────
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_embedding_cache_hit(seeded_kb):
     """After seeding, embeddings should be cached in Redis."""
     cache_keys = await seeded_kb.redis.keys(f"{EMBEDDING_CACHE_PREFIX}*")
@@ -168,7 +168,7 @@ async def test_embedding_cache_hit(seeded_kb):
     assert len(cache_keys) >= 7, f"Expected >=7 cached embeddings, got {len(cache_keys)}"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_metadata_fields_present(seeded_kb):
     """All query results must include category and source_key metadata."""
     results = await seeded_kb.query("What insurance do you accept?")
@@ -180,7 +180,7 @@ async def test_metadata_fields_present(seeded_kb):
         assert r["source_key"] != "", "Empty source_key"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_category_filtered_search(seeded_kb):
     """Category filter should restrict results to a specific FAQ topic."""
     # Search with insurance filter — should only return insurance-related
@@ -194,7 +194,7 @@ async def test_category_filtered_search(seeded_kb):
             f"Category filter failed: got '{r['category']}' instead of 'insurance'"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_configurable_threshold(seeded_kb):
     """Higher threshold should return fewer or no results."""
     # Very high threshold: should return nothing
@@ -206,7 +206,7 @@ async def test_configurable_threshold(seeded_kb):
         "Stricter threshold should return fewer or equal results"
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_chunking_short_text(seeded_kb):
     """Short FAQ entries should not be chunked (1 doc per entry)."""
     from app.voice.knowledge import KnowledgeBase as KB
@@ -215,7 +215,7 @@ async def test_chunking_short_text(seeded_kb):
     assert chunks[0] == "Short text under 500 chars."
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio(loop_scope="module")
 async def test_chunking_long_text(seeded_kb):
     """Long text should be split into overlapping chunks."""
     from app.voice.knowledge import KnowledgeBase as KB

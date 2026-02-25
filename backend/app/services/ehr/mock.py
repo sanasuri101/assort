@@ -21,16 +21,25 @@ from app.services.ehr.models import (
 )
 
 fake = Faker()
+# Deterministic seed so mock data is consistent across restarts.
+# This ensures test patient names/DOBs are always the same.
+Faker.seed(42)
+random.seed(42)
 
 
 class MockEHRAdapter(EHRService):
     def __init__(self):
+        # Re-seed on each init so data is identical regardless of
+        # how many times the adapter is instantiated.
+        Faker.seed(42)
+        random.seed(42)
+
         self.patients: Dict[str, Patient] = {}
         self.practitioners: Dict[str, Practitioner] = {}
         self.slots: Dict[str, Slot] = {}
         self.appointments: Dict[str, Appointment] = {}
         self.coverages: Dict[str, Coverage] = {}
-        
+
         self._seed_data()
 
     def _seed_data(self):
@@ -62,7 +71,9 @@ class MockEHRAdapter(EHRService):
                 )],
                 telecom=[ContactPoint(system="phone", value=fake.phone_number())],
                 gender=gender,
-                birthDate=fake.date_of_birth(minimum_age=18, maximum_age=90),
+                birthDate=fake.date_between_dates(
+                    date_start=date(1935, 1, 1), date_end=date(2006, 1, 1)
+                ),
                 identifier=[Identifier(system="http://hospital.org/mrn", value=str(fake.random_int(min=10000, max=99999)))]
             )
             self.patients[patient_id] = patient

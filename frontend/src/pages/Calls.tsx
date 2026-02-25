@@ -27,7 +27,7 @@ export default function Calls() {
     const { data: calls, isLoading } = useQuery({
         queryKey: ['calls'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/calls');
+            const res = await axios.get('http://localhost:8080/api/dashboard/calls');
             return res.data;
         },
     });

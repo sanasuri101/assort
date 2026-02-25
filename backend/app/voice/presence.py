@@ -111,15 +111,13 @@ class PresenceHandler:
                 logger.info(f"No speech interactions for call {self.call_id}, skipping analysis")
                 return
 
-            full_transcript = "\n".join(transcript_parts)
-            logger.info(f"Built transcript for call {self.call_id}: {len(full_transcript)} chars")
+            logger.info(f"Built transcript for call {self.call_id}: {len(transcript_parts)} lines")
 
-            # Store full transcript in Redis for the dashboard
-            await self.redis_service.client.set(
-                f"call:{self.call_id}:transcript", 
-                full_transcript, 
-                ex=86400  # 24h expiry
-            )
+            # Store transcript as a Redis list (worker.py reads with lrange)
+            transcript_key = f"call:{self.call_id}:transcript"
+            for line in transcript_parts:
+                await self.redis_service.client.rpush(transcript_key, line)
+            await self.redis_service.client.expire(transcript_key, 86400)  # 24h expiry
 
             # Trigger the analysis worker via Redis Streams
             await self.redis_service.client.xadd(

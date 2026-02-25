@@ -106,9 +106,18 @@ class CallStateMachine:
         return await self.service.get_call_state(call_id)
 
     async def is_verified(self, call_id: str) -> bool:
-        """Check if a call has been identity-verified."""
+        """Check if a call has been identity-verified.
+
+        Returns True for VERIFIED and any state that follows it
+        (RESOLVING, COMPLETED) so gated tools keep working after
+        the patient books an appointment or the call wraps up.
+        """
         state = await self.get_state(call_id)
-        return state == CallState.VERIFIED
+        return state in (
+            CallState.VERIFIED,
+            CallState.RESOLVING,
+            CallState.COMPLETED,
+        )
 
     async def _log_transition(
         self, call_id: str, from_state: Optional[CallState], to_state: CallState

@@ -33,14 +33,14 @@ export default function Knowledge() {
     const { data: items, isLoading } = useQuery({
         queryKey: ['knowledge'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/knowledge');
+            const res = await axios.get('http://localhost:8080/api/dashboard/knowledge');
             return res.data;
         },
     });
 
     const addMutation = useMutation({
         mutationFn: async (item: { key: string; content: string }) => {
-            await axios.post('http://localhost:8000/api/dashboard/knowledge', item);
+            await axios.post('http://localhost:8080/api/dashboard/knowledge', item);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['knowledge'] });
@@ -52,7 +52,7 @@ export default function Knowledge() {
 
     const deleteMutation = useMutation({
         mutationFn: async (key: string) => {
-            await axios.delete(`http://localhost:8000/api/dashboard/knowledge/${key}`);
+            await axios.delete(`http://localhost:8080/api/dashboard/knowledge/${key}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['knowledge'] });

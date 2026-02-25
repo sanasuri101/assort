@@ -51,12 +51,14 @@ class TestTurnMetrics:
 class TestLatencyTracker:
     """Tests for the LatencyTracker FrameProcessor."""
 
-    def test_initial_state(self):
+    @pytest.mark.asyncio
+    async def test_initial_state(self):
         tracker = LatencyTracker(call_id="test-001")
         assert tracker._turn_count == 0
         assert len(tracker._completed_turns) == 0
 
-    def test_mark_tool_timing(self):
+    @pytest.mark.asyncio
+    async def test_mark_tool_timing(self):
         tracker = LatencyTracker(call_id="test-001")
         tracker._current_turn.user_speech_end = time.monotonic()
 
@@ -66,12 +68,14 @@ class TestLatencyTracker:
 
         assert tracker._current_turn.tool_duration_ms >= 0
 
-    def test_summary_empty(self):
+    @pytest.mark.asyncio
+    async def test_summary_empty(self):
         tracker = LatencyTracker(call_id="test-001")
         summary = tracker.get_summary()
         assert summary["turns"] == 0
 
-    def test_summary_with_turns(self):
+    @pytest.mark.asyncio
+    async def test_summary_with_turns(self):
         tracker = LatencyTracker(call_id="test-001")
 
         # Simulate 3 completed turns

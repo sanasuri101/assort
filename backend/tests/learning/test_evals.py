@@ -1,6 +1,8 @@
 import pytest
+
 from app.learning.evals import Evaluator, PromptOptimizer, TestCase
 from app.voice.prompt_manager import PromptManager
+
 
 @pytest.mark.asyncio
 async def test_evaluator_score():
@@ -11,7 +13,7 @@ async def test_evaluator_score():
         expected_outcome="scheduled",
         expected_tools=["book_appointment"]
     )
-    
+
     # This will hit real Gemini if key is set
     score = await evaluator.score_interaction("You are a healthcare assistant.", case)
     assert isinstance(score, float)
@@ -22,14 +24,14 @@ async def test_evaluator_score():
 async def test_prompt_optimizer_gate():
     # Real PromptManager (reads from disk)
     pm = PromptManager()
-    
+
     # Real Optimizer
     optimizer = PromptOptimizer(pm)
-    
+
     # Try to optimize (will use real LLM)
     # We use a dummy transcript
     transcript = "user: help me\nassistant: how?"
     await optimizer.optimize_and_gate("test-call-eval", transcript, "old system prompt")
-    
+
     # Verify we don't crash
     assert True

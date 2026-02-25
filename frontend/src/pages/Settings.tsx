@@ -24,7 +24,7 @@ export default function Settings() {
     const { data: settings, isLoading } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/settings');
+            const res = await axios.get('http://localhost:8080/api/dashboard/settings');
             return res.data;
         },
     });
@@ -39,7 +39,7 @@ export default function Settings() {
 
     const saveMutation = useMutation({
         mutationFn: async (updated: any) => {
-            await axios.post('http://localhost:8000/api/dashboard/settings', updated);
+            await axios.post('http://localhost:8080/api/dashboard/settings', updated);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings'] });

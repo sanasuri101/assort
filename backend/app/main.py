@@ -32,11 +32,9 @@ logger = logging.getLogger("assort_health")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle — Key validation & Redis connection."""
-    # Startup
+    # Startup — validate keys (warn on missing, never block startup)
     from app.utils.validate_keys import validate_all_keys
-    if not await validate_all_keys():
-        logger.critical("Startup failed due to invalid or missing configuration.")
-        raise RuntimeError("Configuration validation failed")
+    await validate_all_keys()
 
     app.state.redis = Redis.from_url(
         settings.redis_url,

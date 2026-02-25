@@ -19,14 +19,14 @@ export default function LearningLoop() {
     const { data: candidates, isLoading } = useQuery({
         queryKey: ['candidates'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/learning/candidates');
+            const res = await axios.get('http://localhost:8080/api/dashboard/learning/candidates');
             return res.data;
         },
     });
 
     const approveMutation = useMutation({
         mutationFn: async (id: string) => {
-            await axios.post(`http://localhost:8000/api/dashboard/learning/approve/${id}`);
+            await axios.post(`http://localhost:8080/api/dashboard/learning/approve/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['candidates'] });
@@ -35,7 +35,7 @@ export default function LearningLoop() {
 
     const rejectMutation = useMutation({
         mutationFn: async (id: string) => {
-            await axios.delete(`http://localhost:8000/api/dashboard/learning/reject/${id}`);
+            await axios.delete(`http://localhost:8080/api/dashboard/learning/reject/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['candidates'] });

@@ -32,7 +32,7 @@ class Evaluator:
         try:
             # Simulation: Ask Gemini how it would respond given the prompt and input
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash-lite",
                 contents=f"Transcript:\n{test_case.input_transcript}",
                 config=types.GenerateContentConfig(
                     system_instruction=target_prompt,
@@ -126,7 +126,7 @@ class PromptOptimizer:
         instruction = "You are a specialized prompt engineer for healthcare voice AI. Improve the following system prompt to handle the failure case described in the transcript. Maintain all safety rules and tool definitions."
         try:
             res = self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash-lite",
                 contents=f"Current Prompt:\n{current_prompt}\n\nFailure Transcription:\n{transcript}",
                 config=types.GenerateContentConfig(
                     system_instruction=instruction,

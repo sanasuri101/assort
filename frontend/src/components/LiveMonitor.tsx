@@ -12,7 +12,7 @@ export function LiveMonitor() {
     const { data: activeCalls, isLoading } = useQuery({
         queryKey: ['live-calls'],
         queryFn: async () => {
-            const res = await axios.get('http://localhost:8000/api/dashboard/live');
+            const res = await axios.get('http://localhost:8080/api/dashboard/live');
             return res.data;
         },
         refetchInterval: 5000, // Poll every 5s for demo

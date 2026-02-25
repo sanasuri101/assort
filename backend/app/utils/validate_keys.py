@@ -130,15 +130,16 @@ async def validate_all_keys():
         validate_redis(),
         validate_wandb()
     )
-    
-    # Required keys are the first 5
+
     required_results = results[:5]
     if all(r[0] for r in required_results):
         print("--- All required keys valid ---\n")
-        return True
     else:
-        print("--- ❌ CRITICAL: Missing or invalid required API keys ---\n")
-        return False
+        failed = [name for (ok, _), name in zip(required_results,
+                  ["Gemini", "Deepgram", "Cartesia", "Daily", "Redis"]) if not ok]
+        print(f"--- ⚠️  Missing or invalid keys: {', '.join(failed)} ---")
+        print("--- Some features will be unavailable. Set keys in .env to enable. ---\n")
+    return True
 
 if __name__ == "__main__":
     if asyncio.run(validate_all_keys()):

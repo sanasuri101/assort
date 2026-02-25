@@ -2,11 +2,85 @@
 
 # Sentry and Pipecat mocks removed. Tests will use real libraries if installed.
 
-import httpx
-import pytest
-import pytest_asyncio
+import os
 
-from app.main import app
+# Disable wandb/weave telemetry in tests — its background asyncio thread
+# causes event loop interference with module-scoped async fixtures.
+os.environ.setdefault("WANDB_MODE", "disabled")
+os.environ.setdefault("WANDB_DISABLED", "true")
+
+# Patch weave.op to a no-op BEFORE app imports apply decorators.
+# weave.op() wraps async functions with tracing that spawns background
+# threads, which accumulate across tests and poison the event loop.
+import weave  # noqa: E402
+
+def _noop_weave_op(*args, **kwargs):
+    """No-op weave.op() — returns the function unchanged."""
+    if args and callable(args[0]):
+        return args[0]  # @weave.op without parens
+    def decorator(fn):
+        return fn
+    return decorator
+
+weave.op = _noop_weave_op
+
+
+class _WeaveObjectStub:
+    """Lightweight stand-in for weave.Object that supports keyword init."""
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+weave.Object = _WeaveObjectStub
+
+# Patch Pipecat FrameProcessor.__init__ to a no-op. Both KBPrefetcher and
+# LatencyTracker extend FrameProcessor, which spawns background async tasks
+# that accumulate across tests and deadlock the event loop.
+import pipecat.processors.frame_processor as _fp  # noqa: E402
+
+
+def _noop_fp_init(self, *args, **kwargs):
+    """Minimal FrameProcessor init — just set attrs tests rely on."""
+    self.name = getattr(self, "name", self.__class__.__name__)
+
+
+_fp.FrameProcessor.__init__ = _noop_fp_init
+
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+
+from app.main import app  # noqa: E402
+
+
+def pytest_collection_modifyitems(items):
+    """Reorder tests to avoid event loop pollution deadlocks.
+
+    Order: knowledge → middleware → everything else → latency
+
+    - test_knowledge runs first: module-scoped async fixture deadlocks
+      if other tests have left orphaned async tasks.
+    - test_middleware runs second: BaseHTTPMiddleware's call_next creates
+      async tasks that deadlock when orphaned background tasks exist.
+    - test_latency runs last: LatencyTracker (Pipecat FrameProcessor)
+      spawns background async tasks that poison the event loop.
+    """
+    knowledge = []
+    middleware = []
+    latency = []
+    rest = []
+    for item in items:
+        if "test_knowledge" in item.nodeid:
+            knowledge.append(item)
+        elif "test_middleware" in item.nodeid:
+            middleware.append(item)
+        elif "test_latency" in item.nodeid:
+            latency.append(item)
+        else:
+            rest.append(item)
+    items[:] = knowledge + middleware + rest + latency
 
 
 @pytest_asyncio.fixture
@@ -26,7 +100,7 @@ async def redis_client():
 @pytest_asyncio.fixture
 async def redis_service(redis_client):
     """Fixture for real RedisService, ensuring it's used as a singleton."""
-    from app.services.redis_service import RedisService, get_redis_service
+    from app.services.redis_service import RedisService
     import app.services.redis_service as rs
     
     service = RedisService()
