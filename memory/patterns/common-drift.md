@@ -27,3 +27,11 @@
 - **Resolution**: Close obsolete branches rather than continuing to monitor them
 
 *Last updated: 2026-02-26T21:47:00Z*
+
+
+### Metadata-Only Implementation
+- **Pattern**: Agent creates only correction/monitoring files without actual implementation
+- **Detection**: File changes only in .claude/corrections/, no expected artifacts created
+- **Example**: voice-pipeline-fixes-001 added 3 correction files but zero voice pipeline files
+- **Prevention**: Score < 20 triggers immediate correction with specific file creation checklist
+- **Resolution**: Inject explict file-by-file implementation instructions, stop accepting metadata-only commits
