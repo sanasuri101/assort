@@ -1,37 +1,19 @@
-# Common Drift Patterns
+The page outlines three common drift patterns that can occur in project management. 
 
-## Detected Drift Patterns
+1. **Scope Creep**: Refers to the addition of optimizations or features beyond the agreed plan scope. An example includes latency optimizations in a voice pipeline. Prevention involves reminding agents to adhere to the original plan boundaries.
 
-### Scope Creep
-- **Pattern**: Agent adds optimizations/features beyond current plan scope
-- **Example**: Voice pipeline latency optimizations committed to foundation branch
-- **Prevention**: Remind agent to stay within plan boundaries
+2. **Branch Staleness**: This occurs when feature branches become outdated compared to the main branch. Detection methods utilize a comparison that shows how far behind the branch is, requiring resolution through rebasing before further work.
 
-### Branch Staleness
-- **Pattern**: Feature branches fall behind main without rebasing
-- **Detection**: compare_branches shows behind_by > 0 with diverged status
-- **Resolution**: Inject correction to rebase before continuing
+3. **Missing Artifacts**: This pattern happens when specified artifacts are not created by agents as outlined in the plan. Detection involves checking the file list against expectations and resolution can involve providing specific instructions to ensure artifact creation.
 
-### Missing Artifacts
-- **Pattern**: Plan specifies artifacts but agent skips creating them
-- **Detection**: File list from compare_branches missing expected paths
-- **Resolution**: Inject specific file creation instructions
-
-
-
-
-### Branch Obsolescence
-- **Pattern**: Feature branch becomes obsolete when work is merged to main via different branch
-- **Detection**: Branch shows 10+ commits behind main with 0 relevant file changes
-- **Example**: voice-pipeline-fixes-001 branch only contains drift-guard traces while Phase 3 work exists on main
-- **Resolution**: Close obsolete branches rather than continuing to monitor them
-
-*Last updated: 2026-02-26T21:47:00Z*
-
+*This information was last updated on February 26, 2026.*
 
 ### Metadata-Only Implementation
-- **Pattern**: Agent creates only correction/monitoring files without actual implementation
-- **Detection**: File changes only in .claude/corrections/, no expected artifacts created
-- **Example**: voice-pipeline-fixes-001 added 3 correction files but zero voice pipeline files
-- **Prevention**: Score < 20 triggers immediate correction with specific file creation checklist
-- **Resolution**: Inject explict file-by-file implementation instructions, stop accepting metadata-only commits
+- **Pattern**: Agent creates only correction/tracing metadata files without actual implementation
+- **Detection**: File list shows only .claude/corrections/ entries, no source code files
+- **Example**: voice-pipeline-fixes-001 branch has 3 commits, all are drift-guard traces/corrections
+- **Root Cause**: Agent misinterprets correction prompts as work product instead of guidance
+- **Prevention**: PRD must explicitly state "DO NOT create markdown files — write actual Python code"
+- **Resolution**: Close obsolete branches; require implementation files in alignment checks
+
+*Detected: 2026-02-26T21:47:53Z*
