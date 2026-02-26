@@ -1,0 +1,1 @@
+{"session_id":"test-session-001","branch":"feat/voice-pipeline-fixes","timestamp":"2026-02-26T21:18:40.451Z","plan_ref":".planning/phases/03-voice-pipeline/03-01-PLAN.md","score":85,"drift_detected":false,"correction_injected":false,"files_changed":12,"commits_since_last_check":3,"summary":"Initial alignment check - branch is behind main, no new work detected"}
