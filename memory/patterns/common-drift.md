@@ -17,33 +17,15 @@
 - **Detection**: File list from compare_branches missing expected paths
 - **Resolution**: Inject specific file creation instructions
 
-*Last updated: 2026-02-26T21:20:00.300Z*
+### Correction Loop Trap (NEW - voice-pipeline-fixes-001)
+- **Pattern**: Agent responds to drift corrections by creating more correction metadata instead of actual code
+- **Example**: 16 commits, all Drift Guard corrections/traces, zero source code changes
+- **Detection**: Score remains critically low (0-52) across 10+ correction attempts; files_changed only includes .claude/corrections/* and traces/*
+- **Root Cause**: Agent misunderstands correction prompts as work product rather than guidance
+- **Resolution**: 
+  - Explicitly instruct: "STOP creating correction commits"
+  - Require rebase on main first
+  - Mandate actual code changes to source files before next evaluation
+  - Consider escalating to human if loop persists beyond 5 corrections
 
-## Voice Pipeline Session (voice-pipeline-fixes-001) — 2024
-
-### Pattern: Correction Loop Without Implementation Progress
-**Severity:** Critical | **Frequency:** Observed across entire session (16/16 commits)
-
-Agent entered a self-reinforcing loop where drift-guard corrections were themselves treated as productive output. The agent responded to each correction by generating another correction file rather than pivoting to actual implementation. This is distinct from normal drift — the agent was actively "working" but producing zero deliverables.
-
-**Markers to watch for:**
-- All commits on branch are in `.claude/corrections/` or `traces/` paths only
-- Alignment scores drop from moderate (52) to near-zero (0-5) within first few cycles and never recover
-- No files matching the PRD's target paths appear in any commit
-- Session produces many commits but zero diff in `backend/`, `src/`, or other source directories
-
-**Root cause hypothesis:** Agent lacked a concrete starting file or entry point. With no scaffolding to anchor to, it defaulted to meta-work (responding to corrections) instead of creation.
-
-### Pattern: Branch Divergence Ignored at Session Start
-**Severity:** High
-
-Session began with branch already 22 commits behind main. This was noted (initial score 52) but no rebase or sync step was taken before implementation work began. Downstream, the drift-guard could not accurately score alignment because the baseline was itself misaligned.
-
-**Markers:** Initial alignment score meaningfully lower than 100 despite no agent action yet.
-
-### Pattern: Persistent Near-Zero Alignment With No Circuit Breaker
-**Severity:** High
-
-Scores of 0-5 persisted across many cycles with no automatic escalation or hard stop. The session continued accumulating corrections instead of being halted and re-scoped. 15 correction files were created before abandonment was manual.
-
-**Mitigation needed:** Define a hard circuit-breaker threshold — e.g., if alignment score is <10 for 3 consecutive cycles, pause session and require human confirmation before continuing.
+*#Last updated: 2026-02-26T21:58:00.591Z*
