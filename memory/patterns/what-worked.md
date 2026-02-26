@@ -15,4 +15,12 @@
 - **Scope creep**: Voice pipeline optimizations committed to foundation branch
 - **Branch staleness**: Feature branch fell behind main without rebasing
 
-*Last updated: 2026-02-26T21:19:36.871Z*
+
+
+
+### Drift Guard Monitoring
+- **Automated alignment checks**: Regular scoring catches drift before it compounds
+- **Trace logging**: JSONL traces provide audit trail for debugging drift patterns
+- **Correction injection**: Automated prompts guide agents back to PRD alignment
+
+*Last updated: 2026-02-26T21:47:00Z*
