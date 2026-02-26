@@ -16,4 +16,13 @@
 - Infrastructure plans need explicit persistence/port config questions
 - Voice/AI plans need latency budget questions upfront
 
-*Last updated: 2026-02-26T21:20:00.300Z*
+
+
+
+### Session Monitoring - Branch Lifecycle
+- Was the feature branch created from the correct base commit?
+- Is there a plan for branch cleanup after merge?
+- Should this branch be monitoring a different commit range?
+- Are we tracking the right branch for this feature phase?
+
+*Last updated: 2026-02-26T21:47:00Z*
